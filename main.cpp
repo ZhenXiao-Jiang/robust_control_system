@@ -1,3 +1,4 @@
+#include <iostream>
 #include "env.h"
 #include "J_layers.h"
 #include "J_kf.h"
@@ -175,13 +176,14 @@ void pure_dqn() {
 	int success_break = 0;
 	int good_stop = 0;
 	int bad_stop = 0;
-	for (int episode = 0; episode < 1000; episode++) {
+	int crash = 0;
+	for (int episode = 0; episode < 10000; episode++) {
 		env.reset(10);
 		for (int step = 0; step < 1000; step++) {
 			vector<double> state = env.observe();
 			vector<double> q_values = dqn.forward(state);
 			int action = max_element(q_values.begin(), q_values.end()) - q_values.begin();
-			if(action == -1) {
+			if (action == -1) {
 				if (env.is_break_down()) {
 					break_count++;
 					good_stop++;
@@ -194,24 +196,23 @@ void pure_dqn() {
 			env.step(action);
 			if (env.is_done()) {
 				avg_pos += env.get_pos();
-				if(env.get_pos() == 3) {
+				if (env.get_pos() == 3) {
 					success++;
 				}
-				if(env.is_break_down()) {
+				else {
+					crash++;
+				}
+				if (env.is_break_down()) {
 					break_count++;
-					if(env.get_pos() == 3) {
-						success_break++;
-					}
 				}
 				break;
 			}
 		}
 	}
-	cout << "avg_pos: " << avg_pos / 1000 << endl;
-	cout << "success: " << success << " / 1000" << endl;
-	cout << "success_break: " << success_break << " / " << break_count << endl;
-	cout << "good_stop: " << good_stop << " / " << break_count << endl;
-	cout << "bad_stop: " << bad_stop << " / " << good_stop + bad_stop << endl;
+	cout << "escape: " << success << " / 10000" << endl;
+	cout << "crash: " << crash << " /10000" << endl;
+	cout << "mis-stop: " << bad_stop << " /10000" << endl;
+	cout << "reasonable stop: " << good_stop << " / " << break_count << endl;
 }
 
 void kf_dqn_visual() {
@@ -247,7 +248,8 @@ void kf_dqn() {
 	int success_break = 0;
 	int good_stop = 0;
 	int bad_stop = 0;
-	for (int episode = 0; episode < 1000; episode++) {
+	int crash = 0;
+	for (int episode = 0; episode < 10000; episode++) {
 		env.reset(10);
 		vector<double> state = env.observe();
 		int action = system.reset(state);
@@ -271,21 +273,20 @@ void kf_dqn() {
 				if(env.get_pos() == 3) {
 					success++;
 				}
+				else {
+					crash++;
+				}
 				if(env.is_break_down()) {
 					break_count++;
-					if(env.get_pos() == 3) {
-						success_break++;
-					}
 				}
 				break;
 			}
 		}
 	}
-	cout << "avg_pos: " << avg_pos / 1000 << endl;
-	cout << "success: " << success << " / 1000" << endl;
-	cout << "success_break: " << success_break << " / " << break_count << endl;
-	cout << "good_stop: " << good_stop << " / " << break_count << endl;
-	cout << "bad_stop: " << bad_stop << " / " << good_stop + bad_stop << endl;
+	cout << "escape: " << success << " / 10000" << endl;
+	cout << "crash: " << crash << " /10000" << endl;
+	cout << "mis-stop: " << bad_stop << " /10000" << endl;
+	cout << "reasonable stop: " << good_stop << " / " << break_count << endl;
 }
 
 int main() {
