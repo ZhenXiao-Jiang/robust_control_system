@@ -147,7 +147,7 @@ struct System {
 void pure_dqn_visual() {
 	Env env;
 	DQN dqn;
-	dqn.load();
+	dqn.load("trained models/dqn ");
 	initgraph(300, 300);
 	env.reset(10);
 	env.print_bkg();
