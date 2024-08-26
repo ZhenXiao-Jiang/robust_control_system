@@ -144,6 +144,46 @@ struct System {
 	}
 };
 
+struct HM {
+	DQN dqn;
+	int last_action;
+	int count;
+	Eigen::Matrix2d covP_x; // 协方差
+	Eigen::Vector2d State_x; // 状态
+	Eigen::Matrix2d covP_y;
+	Eigen::Vector2d State_y;
+
+	HM() : dqn(), last_action(0), count(0), covP_x(Eigen::Matrix2d::Identity()), State_x(Eigen::Vector2d::Zero()), covP_y(Eigen::Matrix2d::Identity()), State_y(Eigen::Vector2d::Zero()) {}
+	int reset(vector<double> state) {
+		covP_x << 1, 0, 0, 1; //协方差一开始为1，后续会迭代收敛
+		State_x << state[0], 0; // 初始状态值， 第一个为位移、第二个为速度
+		covP_y << 1, 0, 0, 1; //协方差一开始为1，后续会迭代收敛
+		State_y << state[1], 0; // 初始状态值， 第一个为位移、第二个为速度
+		count = 0;
+		vector<double> q_values = dqn.forward(state);
+		last_action = max_element(q_values.begin(), q_values.end()) - q_values.begin();
+		return last_action;
+	}
+
+	int act(vector<double> state) {
+		kf(state[0], v_x[last_action], covP_x, State_x);
+		kf(state[1], v_y[last_action], covP_y, State_y);
+		state[0] = State_x[0];
+		state[1] = State_y[0];
+		vector<double> q_values = dqn.forward(state);
+		last_action = max_element(q_values.begin(), q_values.end()) - q_values.begin();
+		return last_action;
+	}
+
+	void load() {
+		dqn.load("trained models/dqn ");
+	}
+
+	void save() {
+		dqn.save("trained models/dqn ");
+	}
+};
+
 void pure_dqn_visual() {
 	Env env;
 	DQN dqn;
@@ -289,10 +329,62 @@ void kf_dqn() {
 	cout << "reasonable stop: " << good_stop << " / " << break_count << endl;
 }
 
+void hidden_markov() {
+	cout << "hidden_markov:" << endl;
+	Env env;
+	HM hm;
+	hm.load();
+	double avg_pos = 0;
+	int success = 0;
+	int break_count = 0;
+	int success_break = 0;
+	int good_stop = 0;
+	int bad_stop = 0;
+	int crash = 0;
+	for (int episode = 0; episode < 10000; episode++) {
+		env.reset(10);
+		vector<double> state = env.observe();
+		int action = hm.reset(state);
+		env.step(action);
+		for (int step = 0; step < 1000; step++) {
+			vector<double> state = env.observe();
+			int action = hm.act(state);
+			if (action == -1) {
+				if (env.is_break_down()) {
+					break_count++;
+					good_stop++;
+				}
+				else {
+					bad_stop++;
+				}
+				break;
+			}
+			env.step(action);
+			if (env.is_done()) {
+				avg_pos += env.get_pos();
+				if (env.get_pos() == 3) {
+					success++;
+				}
+				else {
+					crash++;
+				}
+				if (env.is_break_down()) {
+					break_count++;
+				}
+				break;
+			}
+		}
+	}
+	cout << "escape: " << success << " / 10000" << endl;
+	cout << "crash: " << crash << " /10000" << endl;
+	cout << "mis-stop: " << bad_stop << " /10000" << endl;
+	cout << "reasonable stop: " << good_stop << " / " << break_count << endl;
+}
+
 int main() {
 	while(1)
 	{
-		cout << "** 0.pure_dqn_visual    1.trained_system_visual    2.pure_dqn   3.trained_system **" << endl;
+		cout << "** 0.pure_dqn_visual    1.trained_system_visual    2.pure_dqn   3.trained_system    4.hidden_markov  **" << endl;
 		cout << "please input the number of the function you want to run:";
 		int op;
 		cin >> op;
@@ -308,6 +400,9 @@ int main() {
 				break;
 			case 3:
 				kf_dqn();
+				break;
+			case 4:
+				hidden_markov();
 				break;
 			default:
 				return 0;
