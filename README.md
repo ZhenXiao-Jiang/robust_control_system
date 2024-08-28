@@ -1,1 +1,2 @@
-To run the code, please add ".\eigen-3.4.0" to your include path and run "EasyX_20220901.exe" to install EasyX.
+To run the code, please unpack "eigen-3.4.0.zip" and add it to your include path.
+Please run "EasyX_20220901.exe" to install EasyX.
