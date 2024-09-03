@@ -5,8 +5,7 @@
 
 using namespace std;
 
-int __filter_flag = 0;
-
+const int __filter_flag = 0;
 const double v_x[4] = {-0.3, 0.3, 0, 0};
 const double v_y[4] = {0, 0, 0.3, -0.3};
 
