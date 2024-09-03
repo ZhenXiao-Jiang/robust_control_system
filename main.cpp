@@ -5,7 +5,7 @@
 
 using namespace std;
 
-bool __filter_flag = false;
+int __filter_flag = 0;
 
 const double v_x[4] = {-0.3, 0.3, 0, 0};
 const double v_y[4] = {0, 0, 0.3, -0.3};
@@ -147,17 +147,13 @@ struct HM {
 	DQN dqn;
 	int last_action;
 	int count;
-	Eigen::Matrix2d covP_x; // 协方差
-	Eigen::Vector2d State_x; // 状态
-	Eigen::Matrix2d covP_y;
-	Eigen::Vector2d State_y;
+	double last_x, last_y, step;
 
-	HM() : dqn(), last_action(0), count(0), covP_x(Eigen::Matrix2d::Identity()), State_x(Eigen::Vector2d::Zero()), covP_y(Eigen::Matrix2d::Identity()), State_y(Eigen::Vector2d::Zero()) {}
+	HM() : dqn(), last_action(0), count(0), last_x(0), last_y(0),step(0) {}
 	int reset(vector<double> state) {
-		covP_x << 1, 0, 0, 1; //协方差一开始为1，后续会迭代收敛
-		State_x << state[0], 0; // 初始状态值， 第一个为位移、第二个为速度
-		covP_y << 1, 0, 0, 1; //协方差一开始为1，后续会迭代收敛
-		State_y << state[1], 0; // 初始状态值， 第一个为位移、第二个为速度
+		last_x = state[0];
+		last_y = state[1];
+		step = 0;
 		count = 0;
 		vector<double> q_values = dqn.forward(state);
 		last_action = max_element(q_values.begin(), q_values.end()) - q_values.begin();
@@ -165,13 +161,19 @@ struct HM {
 	}
 
 	int act(vector<double> state) {
-		kf(state[0], v_x[last_action], covP_x, State_x);
-		kf(state[1], v_y[last_action], covP_y, State_y);
-		state[0] = State_x[0];
-		state[1] = State_y[0];
+		step++;
+		double confidence_rate = 0.9 * (2.0  / (1.0 + exp(-step)) - 1);
+		state[0] = (1 - confidence_rate) * state[0] + confidence_rate * (last_x + v_x[last_action]);
+		state[1] = (1 - confidence_rate) * state[1] + confidence_rate * (last_y + v_y[last_action]);
+		last_x = state[0];
+		last_y = state[1];
 		vector<double> q_values = dqn.forward(state);
 		last_action = max_element(q_values.begin(), q_values.end()) - q_values.begin();
 		return last_action;
+	}
+
+	vector<double> get_state() {
+		return { last_x, last_y };
 	}
 
 	void load() {
@@ -360,17 +362,20 @@ void pure_dqn() {
 	cout << "crash: " << crash << " /10000" << endl;
 	cout << "mis-stop: " << bad_stop << " /10000" << endl;
 	cout << "reasonable stop: " << good_stop << " / " << break_count << endl;
-	ofstream file("example.csv");
-	for (int i = 0; i < 1000; i++) {
-		if (__count[i] != 0)
-			file << __bias[i] / __count[i] << ",";
+	if (__filter_flag)
+	{
+		ofstream file("example.csv");
+		for (int i = 0; i < 1000; i++) {
+			if (__count[i] != 0)
+				file << __bias[i] / __count[i] << ",";
+		}
+		file.close();
 	}
-	file.close();
 
 }
 
 void hidden_markov() {
-	cout << "hidden_markov:" << endl;
+	cout << "hidden markov model:" << endl;
 	Env env;
 	HM hm;
 	hm.load();
@@ -381,6 +386,8 @@ void hidden_markov() {
 	int good_stop = 0;
 	int bad_stop = 0;
 	int crash = 0;
+	double __bias[1000]{};
+	int __count[1000]{};
 	for (int episode = 0; episode < 10000; episode++) {
 		env.reset(10);
 		vector<double> state = env.observe();
@@ -389,6 +396,11 @@ void hidden_markov() {
 		for (int step = 0; step < 1000; step++) {
 			vector<double> state = env.observe();
 			int action = hm.act(state);
+			if (__filter_flag && !env.is_break_down()) {
+				state = hm.get_state();
+				__bias[step] += (state[0] - env.get_pos_x()) * (state[0] - env.get_pos_x()) + (state[1] - env.get_pos_y()) * (state[1] - env.get_pos_y());
+				__count[step] += 2;
+			}
 			if (action == -1) {
 				if (env.is_break_down()) {
 					break_count++;
@@ -419,6 +431,15 @@ void hidden_markov() {
 	cout << "crash: " << crash << " /10000" << endl;
 	cout << "mis-stop: " << bad_stop << " /10000" << endl;
 	cout << "reasonable stop: " << good_stop << " / " << break_count << endl;
+	if (__filter_flag)
+	{
+		ofstream file("example.csv");
+		for (int i = 0; i < 1000; i++) {
+			if (__count[i] != 0)
+				file << __bias[i] / __count[i] << ",";
+		}
+		file.close();
+	}
 }
 
 void lstm_mlp_dqn() {
@@ -434,7 +455,7 @@ void lstm_mlp_dqn() {
 	int crash = 0;
 	double __bias[1000]{};
 	int __count[1000]{};
-	for (int episode = 0; episode < 1000; episode++) {
+	for (int episode = 0; episode < 10000; episode++) {
 		env.reset(10);
 		vector<double> state = env.observe();
 		int action = system.reset(state);
@@ -472,16 +493,19 @@ void lstm_mlp_dqn() {
 			}
 		}
 	}
-	cout << "escape: " << success << " / 1000" << endl;
-	cout << "crash: " << crash << " /1000" << endl;
-	cout << "mis-stop: " << bad_stop << " /1000" << endl;
+	cout << "escape: " << success << " / 10000" << endl;
+	cout << "crash: " << crash << " /10000" << endl;
+	cout << "mis-stop: " << bad_stop << " /10000" << endl;
 	cout << "reasonable stop: " << good_stop << " / " << break_count << endl;
-	ofstream file("example.csv");
-	for (int i = 0; i < 1000; i++) {
-		if(__count[i] != 0)
-			file << __bias[i] / __count[i] << ",";
+	if(__filter_flag)
+	{
+		ofstream file("example.csv");
+		for (int i = 0; i < 1000; i++) {
+			if (__count[i] != 0)
+				file << __bias[i] / __count[i] << ",";
+		}
+		file.close();
 	}
-	file.close();
 }
 
 int main() {
@@ -511,7 +535,7 @@ int main() {
 				return 0;
 		}
 		cout << endl;
-		cout << "********************************************************************************************************" << endl;
+		cout << "***************************************************************************************************************" << endl;
 	}
 	return 0;
 }

@@ -289,8 +289,6 @@ public:
 			default:
 				_obs_x = _pos_x + 0.8 * double_random_dis_0(0, 3, 5) + 0.2 * int_random(-10, 10) * 0.1;
 				_obs_y = _pos_y + 0.8 * double_random_dis_0(0, 3, 5) + 0.2 * int_random(-10, 10) * 0.1;
-				//_obs_x = _pos_x + 0.8 * double_random_dis_0(0, 2, 3) + 0.2 * int_random(-10, 10) * 0.1;
-				//_obs_y = _pos_y + 0.8 * double_random_dis_0(0, 2, 3) + 0.2 * int_random(-10, 10) * 0.1;
 				return { _obs_x + _break_mode, _obs_y, _tar_x, _tar_y };
 			}
 		}
