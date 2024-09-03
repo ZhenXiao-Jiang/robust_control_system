@@ -162,7 +162,7 @@ struct HM {
 
 	int act(vector<double> state) {
 		step++;
-		double confidence_rate = 0.9 * (2.0  / (1.0 + exp(-step)) - 1);
+		double confidence_rate = 0.8 * (2.0  / (1.0 + exp(-0.5 * step)) - 1);
 		state[0] = (1 - confidence_rate) * state[0] + confidence_rate * (last_x + v_x[last_action]);
 		state[1] = (1 - confidence_rate) * state[1] + confidence_rate * (last_y + v_y[last_action]);
 		last_x = state[0];
@@ -331,6 +331,18 @@ void pure_dqn() {
 			if (__filter_flag&&!env.is_break_down()) {
 				__bias[step] += (state[0] - env.get_pos_x()) * (state[0] - env.get_pos_x()) + (state[1] - env.get_pos_y()) * (state[1] - env.get_pos_y());
 				__count[step] += 2;
+				/*
+				double bias = abs(state[0] - env.get_pos_x())  ;
+				if (bias > __bias[step]){
+					__bias[step] = bias;
+					__count[step] = 1;
+				}
+				bias = abs(state[1] - env.get_pos_y());
+				if (bias > __bias[step + 1]) {
+					__bias[step + 1] = bias;
+					__count[step + 1] = 1;
+				}
+				*/
 			}
 			if (action == -1) {
 				if (env.is_break_down()) {
@@ -398,8 +410,21 @@ void hidden_markov() {
 			int action = hm.act(state);
 			if (__filter_flag && !env.is_break_down()) {
 				state = hm.get_state();
+				
 				__bias[step] += (state[0] - env.get_pos_x()) * (state[0] - env.get_pos_x()) + (state[1] - env.get_pos_y()) * (state[1] - env.get_pos_y());
 				__count[step] += 2;
+				/*
+				double bias = abs(state[0] - env.get_pos_x())  ;
+				if (bias > __bias[step]){
+					__bias[step] = bias;
+					__count[step] = 1;
+				}
+				bias = abs(state[1] - env.get_pos_y());
+				if (bias > __bias[step + 1]) {
+					__bias[step + 1] = bias;
+					__count[step + 1] = 1;
+				}
+				*/
 			}
 			if (action == -1) {
 				if (env.is_break_down()) {
@@ -467,6 +492,18 @@ void lstm_mlp_dqn() {
 				state = system.get_state();
 				__bias[step] += (state[0] - env.get_pos_x()) * (state[0] - env.get_pos_x()) + (state[1] - env.get_pos_y()) * (state[1] - env.get_pos_y());
 				__count[step] += 2;
+				/*
+				double bias = abs(state[0] - env.get_pos_x())  ;
+				if (bias > __bias[step]){
+					__bias[step] = bias;
+					__count[step] = 1;
+				}
+				bias = abs(state[1] - env.get_pos_y());
+				if (bias > __bias[step + 1]) {
+					__bias[step + 1] = bias;
+					__count[step + 1] = 1;
+				}
+				*/
 			}
 			if (action == -1) {
 				if (env.is_break_down()) {
